@@ -1,0 +1,295 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Budjetly</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: one centred column, like a household ledger page. Sign-in card, then setup, then a monthly dashboard. */
+:root{
+  --bg:#F2F4F1; --surface:#FFFFFF; --fg:#1B2A29; --muted:#5E6F6D; --line:#DCE3DF;
+  --accent:#0F5C57; --accent-fg:#FFFFFF; --soft:#E4EFEC;
+  --need:#2F6F6A; --unn:#C9BFA6; --extra:#E0A02B; --left:#4C9A5B; --over:#C8553D; --warn-bg:#FBEDE8;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif; --body:"Figtree",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101716; --surface:#18221F; --fg:#E6EEEC; --muted:#9BB0AC; --line:#2B3A37;
+  --accent:#5FC2B6; --accent-fg:#08201D; --soft:#1F302C;
+  --need:#4E9C94; --unn:#7B735E; --extra:#E6B04A; --left:#6DBB7B; --over:#E5806A; --warn-bg:#2E1F1B;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101716; --surface:#18221F; --fg:#E6EEEC; --muted:#9BB0AC; --line:#2B3A37;
+  --accent:#5FC2B6; --accent-fg:#08201D; --soft:#1F302C;
+  --need:#4E9C94; --unn:#7B735E; --extra:#E6B04A; --left:#6DBB7B; --over:#E5806A; --warn-bg:#2E1F1B;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 var(--body);padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:760px;margin:0 auto;display:grid;gap:18px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;margin:0;text-wrap:balance}
+h1{font-size:2rem} h2{font-size:1.35rem} h3{font-size:1.05rem}
+p{margin:0}
+.muted{color:var(--muted)} .small{font-size:.875rem}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:700;font-size:1.3rem;letter-spacing:-.01em}
+.brand b{color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+.stack{display:grid;gap:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.row>*{min-width:0}
+label{display:grid;gap:5px;font-weight:500;font-size:.9rem;flex:1 1 150px}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=month]{
+  font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%;min-width:0}
+input:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.check{display:flex;flex-direction:row;align-items:center;gap:8px;flex:0 0 auto;padding-bottom:11px}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:10px 16px}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.ghost{background:transparent}
+button.danger{border-color:var(--over);color:var(--over)}
+button.sm{padding:6px 10px;font-size:.85rem}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--soft);border-color:transparent;font-weight:500;font-size:.85rem;padding:6px 12px;border-radius:999px}
+.err{color:var(--over);font-size:.9rem;min-height:1.2em}
+.tabs{display:flex;gap:6px}
+.tabs button{flex:1}
+.tabs button[aria-pressed=true]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.list{display:grid;gap:0}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.item:first-child{border-top:0}
+.item .l{min-width:0;flex:1 1 140px;overflow-wrap:anywhere}
+.amt{font-variant-numeric:tabular-nums;font-weight:600}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-weight:500;margin-left:6px}
+.tag.u{background:var(--bg);border:1px dashed var(--unn)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.stat .k{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-family:var(--display);font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.v.good{color:var(--left)} .v.bad{color:var(--over)}
+.bar{display:flex;height:34px;border-radius:9px;overflow:hidden;background:var(--line);border:1px solid var(--line)}
+.bar i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem}
+.legend span::before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;background:var(--c);vertical-align:-1px}
+.advice{border-radius:12px;padding:16px;background:var(--soft);display:grid;gap:10px}
+.advice.tight{background:var(--warn-bg)}
+.advice ul{margin:0;padding-left:20px;display:grid;gap:4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;max-width:90vw;z-index:9}
+.seg-need{background:var(--need)}.seg-unn{background:var(--unn)}.seg-extra{background:var(--extra)}.seg-left{background:var(--left)}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .4s ease}}
+</style>
+
+<main id="app"></main>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var mem={};
+function ld(k,d){try{var v=localStorage.getItem(k);if(v!==null)return JSON.parse(v)}catch(e){}return k in mem?mem[k]:d}
+function sv(k,v){mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function rm(k){delete mem[k];try{localStorage.removeItem(k)}catch(e){}}
+var $=function(s){return document.querySelector(s)};
+var fmt=function(n){return "₹"+Math.round(n).toLocaleString("en-IN")};
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function uid(){return Math.random().toString(36).slice(2,9)}
+var tt;function toast(m){var t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(function(){t.hidden=true},3500)}
+function num(v){var n=parseFloat(v);return isFinite(n)&&n>=0?n:NaN}
+function monthNow(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function monthName(m){var p=m.split("-");return new Date(+p[0],+p[1]-1,1).toLocaleString("en-IN",{month:"long",year:"numeric"})}
+async function hash(email,pw){
+  var s="budjetly|"+email+"|"+pw;
+  try{var b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0")}).join("")}
+  catch(e){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return "f"+h}
+}
+
+var S={mode:"login",email:ld("bj_session",null),data:null,month:monthNow(),draft:[],confirm:null,err:""};
+var SUGG=[["Rent",0,true],["Groceries",0,true],["Milk",0,true],["Electricity bill",0,true],["Mobile recharge",0,true],["School fees",0,true],["Cooking gas",0,true],["OTT subscription",0,false],["Eating out",0,false],["Cable TV",0,false]];
+var prefill="";
+
+function loadData(){S.data=S.email?ld("bj_data_"+S.email,null):null}
+function saveData(){sv("bj_data_"+S.email,S.data)}
+loadData();
+
+/* ---------- views ---------- */
+function head(){
+  return '<div class="top"><div class="brand">Budjet<b>ly</b></div>'+(S.email?'<div class="row" style="align-items:center"><span class="muted small">'+esc(S.email)+'</span><button class="sm ghost" data-act="out">Sign out</button></div>':'')+'</div>';
+}
+function viewAuth(){
+  var su=S.mode==="signup";
+  return head()+'<section class="card stack"><div><h1>'+(su?"Create your account":"Welcome back")+'</h1><p class="muted">'+(su?"Plan your family's month in a few minutes. Your account email must end with @Budjetly.in.":"Sign in to see your family budget.")+'</p></div>'
+  +'<div class="tabs" role="group" aria-label="Sign in or create account"><button data-act="mode" data-v="login" aria-pressed="'+!su+'">Sign in</button><button data-act="mode" data-v="signup" aria-pressed="'+su+'">Create account</button></div>'
+  +'<form id="authf" class="stack" novalidate><label for="em">Email<input id="em" type="email" autocomplete="username" placeholder="yourname@Budjetly.in" required></label>'
+  +'<label for="pw">Password<input id="pw" type="password" autocomplete="'+(su?"new-password":"current-password")+'" placeholder="At least 6 characters" required></label>'
+  +(su?'<label for="pw2">Confirm password<input id="pw2" type="password" autocomplete="new-password" required></label>':'')
+  +'<div class="err" id="err" role="alert">'+esc(S.err)+'</div><button class="primary" type="submit">'+(su?"Create account":"Sign in")+'</button></form>'
+  +'<p class="muted small">Accounts are kept on this device only. This is a simple sign-in for your own use, not a bank-grade login. Do not reuse an important password.</p></section>';
+}
+function itemRow(it,i,editable){
+  return '<div class="item"><div class="l">'+esc(it.name)+'<span class="tag'+(it.need?'':' u')+'">'+(it.need?"Needed":"Not needed")+'</span></div><div class="row" style="align-items:center"><span class="amt">'+fmt(it.amount)+'</span>'+editable+'</div></div>';
+}
+function viewSetup(){
+  var d=S.draft;
+  var chips=SUGG.map(function(s,i){return '<button class="chip" data-act="sugg" data-i="'+i+'">+ '+esc(s[0])+'</button>'}).join("");
+  var rows=d.map(function(it,i){return itemRow(it,i,'<button class="sm ghost" data-act="dd" data-i="'+i+'" aria-label="Remove '+esc(it.name)+'">Remove</button>')}).join("");
+  return head()+'<section class="card stack"><div><h1>Let\'s set up your month</h1><p class="muted">Tell us a little. We will keep it simple and kind.</p></div>'
+  +'<div class="row"><label for="sal">Monthly salary (₹)<input id="sal" type="number" inputmode="numeric" min="0" placeholder="e.g. 30000" value="'+esc(S.setupSal||"")+'"></label>'
+  +'<label for="sp">About how much do you spend in a month? (₹)<input id="sp" type="number" inputmode="numeric" min="0" placeholder="e.g. 22000" value="'+esc(S.setupSp||"")+'"></label></div></section>'
+  +'<section class="card stack"><div><h2>Things you buy or pay every month</h2><p class="muted small">Add rent, groceries, bills, subscriptions. Tick "Needed" for things your family cannot do without.</p></div>'
+  +'<div class="chips">'+chips+'</div>'
+  +'<form id="itf" class="row" novalidate><label for="in">Name<input id="in" type="text" placeholder="e.g. Groceries" value="'+esc(prefill)+'"></label><label for="ia" style="flex-basis:110px">Amount (₹)<input id="ia" type="number" inputmode="numeric" min="0"></label><label class="check" for="inc"><input id="inc" type="checkbox" checked>Needed</label><button class="primary" type="submit">Add</button></form>'
+  +'<div class="err" id="err" role="alert">'+esc(S.err)+'</div>'
+  +'<div class="list">'+(rows||'<p class="muted small">Nothing added yet.</p>')+'</div>'
+  +'<button class="primary" data-act="finish">Save and see my budget</button></section>';
+}
+function calc(){
+  var D=S.data,m=S.month;
+  var listed=0,need=0,unn=0;D.items.forEach(function(i){listed+=i.amount;if(i.need)need+=i.amount;else unn+=i.amount});
+  var base=Math.max(D.spend,listed),other=base-listed;
+  var ex=D.extras.filter(function(e){return e.month===m});var exT=ex.reduce(function(a,e){return a+e.amount},0);
+  return {listed:listed,need:need,unn:unn,base:base,other:other,ex:ex,exT:exT,left:D.salary-base-exT};
+}
+function advice(c){
+  var D=S.data,left=c.left,unnItems=D.items.filter(function(i){return !i.need}).sort(function(a,b){return b.amount-a.amount});
+  var h="",tight=false;
+  var mn=monthName(S.month);
+  if(!c.ex.length){
+    h='<h3>No extra spending in '+esc(mn)+'</h3><p>'+(left>=0?'If the month stays like this, you keep <b>'+fmt(left)+'</b>. That is a good place to be.':'Your usual spending is already <b>'+fmt(-left)+'</b> above your salary. Small changes below can fix that.')+'</p>';
+    tight=left<0;
+    if(left<0)h+=cover(-left,unnItems);
+    return {h:h,tight:tight};
+  }
+  var names=c.ex.map(function(e){return esc(e.name)+" "+fmt(e.amount)}).join(", ");
+  if(left>=0){
+    h='<h3>You can handle this</h3><p>Your extra spending ('+names+') is <b>'+fmt(c.exT)+'</b>. After paying it, you still keep <b>'+fmt(left)+'</b>. Well planned.</p>';
+    if(unnItems.length)h+='<p>One more idea: you could also skip '+unnItems.map(function(i){return esc(i.name)}).join(", ")+' this month and save another <b>'+fmt(c.unn)+'</b>.</p>';
+  }else{
+    tight=true;
+    h='<h3>This month is a little tight, and that is okay</h3><p>Extra spending ('+names+') is <b>'+fmt(c.exT)+'</b>. You are short by <b>'+fmt(-left)+'</b>. This happens in every family. Here is an easy way to cover it.</p>'+cover(-left,unnItems);
+  }
+  return {h:h,tight:tight};
+}
+function cover(short,unnItems){
+  if(!unnItems.length)return '<p>You have no "Not needed" items. Try spending a little less on groceries or travel this month, or move part of the extra cost to next month.</p>';
+  var acc=0,pick=[];unnItems.forEach(function(i){if(acc<short){pick.push(i);acc+=i.amount}});
+  var all=unnItems.reduce(function(a,i){return a+i.amount},0);
+  var s='<p>These are things you buy every month that your family does not really need. Remove them from your list to get <b>'+fmt(acc)+'</b> back:</p><ul>'+pick.map(function(i){return '<li>'+esc(i.name)+' ('+fmt(i.amount)+') <button class="sm danger" data-act="ri" data-id="'+i.id+'">'+(S.confirm===i.id?"Yes, remove":"Remove from budget")+'</button></li>'}).join("")+'</ul>';
+  s+=acc>=short?'<p>That covers the whole extra cost. You will keep <b>'+fmt(acc-short)+'</b> after it.</p>':'<p>That gets you most of the way. For the last <b>'+fmt(short-acc)+'</b>, spend a little less on groceries or travel, or pay part of the extra cost next month.</p>';
+  return s;
+}
+function viewDash(){
+  var D=S.data,c=calc();
+  var tot=Math.max(D.salary,c.base+c.exT)||1;
+  var pc=function(v){return (Math.max(v,0)/tot*100).toFixed(2)+"%"};
+  var needAll=c.need+c.other;
+  var bar='<div class="bar" role="img" aria-label="Salary split: needed '+fmt(needAll)+', not needed '+fmt(c.unn)+', extra '+fmt(c.exT)+', left '+fmt(Math.max(c.left,0))+'"><i class="seg-need" style="width:'+pc(needAll)+'"></i><i class="seg-unn" style="width:'+pc(c.unn)+'"></i><i class="seg-extra" style="width:'+pc(c.exT)+'"></i><i class="seg-left" style="width:'+pc(c.left)+'"></i></div>'
+   +'<div class="legend"><span style="--c:var(--need)">Needed '+fmt(needAll)+'</span><span style="--c:var(--unn)">Not needed '+fmt(c.unn)+'</span><span style="--c:var(--extra)">Extra '+fmt(c.exT)+'</span><span style="--c:var(--left)">Left '+fmt(Math.max(c.left,0))+'</span></div>';
+  var A=advice(c);
+  var items=D.items.map(function(it){
+    var btns='<button class="sm ghost" data-act="tg" data-id="'+it.id+'">Mark '+(it.need?"not needed":"needed")+'</button><button class="sm ghost" data-act="ri" data-id="'+it.id+'">'+(S.confirm===it.id?"Sure? Remove":"Remove")+'</button>';
+    return itemRow(it,0,btns);
+  }).join("");
+  if(c.other>0)items+=itemRow({name:"Other small spending",amount:c.other,need:true},0,"");
+  var ex=c.ex.map(function(e){return '<div class="item"><div class="l">'+esc(e.name)+(e.note?'<div class="muted small">'+esc(e.note)+'</div>':'')+'</div><div class="row" style="align-items:center"><span class="amt">'+fmt(e.amount)+'</span><button class="sm ghost" data-act="de" data-id="'+e.id+'">Delete</button></div></div>'}).join("");
+  return head()
+  +'<section class="card stack"><div class="row" style="justify-content:space-between;align-items:end"><div><h1>Your family budget</h1><p class="muted">'+esc(monthName(S.month))+'</p></div><label for="mo" style="flex:0 1 190px">Month<input id="mo" type="month" value="'+S.month+'"></label></div>'
+  +'<div class="stats"><div class="stat"><div class="k">Salary</div><div class="v">'+fmt(D.salary)+'</div></div><div class="stat"><div class="k">Usual spending</div><div class="v">'+fmt(c.base)+'</div></div><div class="stat"><div class="k">Extra this month</div><div class="v">'+fmt(c.exT)+'</div></div><div class="stat"><div class="k">'+(c.left>=0?"You keep":"Short by")+'</div><div class="v '+(c.left>=0?"good":"bad")+'">'+fmt(Math.abs(c.left))+'</div></div></div>'
+  +bar+'</section>'
+  +'<section class="advice'+(A.tight?" tight":"")+'">'+A.h+'</section>'
+  +'<section class="card stack"><div><h2>Extra spending this month</h2><p class="muted small">School dress, a festival, a repair. Anything that is not part of your usual list.</p></div>'
+  +'<form id="exf" class="row" novalidate><label for="en">What is it for?<input id="en" type="text" placeholder="e.g. Child school dress"></label><label for="ea" style="flex-basis:110px">Cost (₹)<input id="ea" type="number" inputmode="numeric" min="0" placeholder="600"></label><label for="eo">Note (optional)<input id="eo" type="text" placeholder="e.g. School reopens"></label><button class="primary" type="submit">Add</button></form>'
+  +'<div class="err" id="err" role="alert">'+esc(S.err)+'</div><div class="list">'+(ex||'<p class="muted small">No extra spending added for this month.</p>')+'</div></section>'
+  +'<section class="card stack"><div class="row" style="justify-content:space-between;align-items:center"><h2>Every-month list</h2><button class="sm" data-act="edit">Edit salary</button></div><div class="list">'+items+'</div>'
+  +'<form id="nf" class="row" novalidate><label for="in">Add item<input id="in" type="text" placeholder="e.g. Vegetables"></label><label for="ia" style="flex-basis:110px">Amount (₹)<input id="ia" type="number" inputmode="numeric" min="0"></label><label class="check" for="inc"><input id="inc" type="checkbox" checked>Needed</label><button type="submit">Add to list</button></form><div class="err" id="err2" role="alert"></div></section>'
+  +'<section class="card stack"><div><h2>Excel sheet</h2><p class="muted small">Download this month as an Excel file with your summary, every-month list and extra spending. No linking needed.</p></div><div><button class="primary" data-act="xl">Download Excel</button></div></section>';
+}
+function render(){
+  var a=$("#app");
+  if(!S.email)a.innerHTML=viewAuth();
+  else if(!S.data||!S.data.setup)a.innerHTML=viewSetup();
+  else a.innerHTML=viewDash();
+}
+
+/* ---------- actions ---------- */
+function xlsxExport(){
+  var D=S.data,c=calc(),W=XLSX.utils;
+  var sum=[["Budjetly summary",monthName(S.month)],["Salary",D.salary],["Usual monthly spending",c.base],["Extra spending this month",c.exT],["Money left (negative means short)",{t:"n",v:c.left,f:"B2-B3-B4"}],[],["Needed spending",c.need+c.other],["Not needed spending",c.unn]];
+  var ws1=W.aoa_to_sheet(sum);ws1["!cols"]=[{wch:36},{wch:16}];
+  var it=[["Item","Amount (INR)","Needed?"]];D.items.forEach(function(i){it.push([i.name,i.amount,i.need?"Yes":"No"])});
+  if(c.other>0)it.push(["Other small spending",c.other,"Yes"]);
+  it.push(["Total",{t:"n",v:Math.max(c.listed+c.other,0),f:"SUM(B2:B"+it.length+")"},""]);
+  var ws2=W.aoa_to_sheet(it);ws2["!cols"]=[{wch:30},{wch:14},{wch:10}];
+  var ex=[["What for","Cost (INR)","Note"]];c.ex.forEach(function(e){ex.push([e.name,e.amount,e.note||""])});
+  ex.push(["Total",{t:"n",v:c.exT,f:"SUM(B2:B"+ex.length+")"},""]);
+  var ws3=W.aoa_to_sheet(ex);ws3["!cols"]=[{wch:30},{wch:14},{wch:30}];
+  var wb=W.book_new();W.book_append_sheet(wb,ws1,"Summary");W.book_append_sheet(wb,ws2,"Monthly list");W.book_append_sheet(wb,ws3,"Extra spending");
+  return XLSX.write(wb,{bookType:"xlsx",type:"array"});
+}
+async function auth(){
+  var email=$("#em").value.trim(),pw=$("#pw").value,su=S.mode==="signup";
+  var users=ld("bj_users",{}),key=email.toLowerCase();
+  function fail(m){S.err=m;$("#err").textContent=m}
+  if(!/^[^\s@]+@budjetly\.in$/i.test(email))return fail("Use an email that ends with @Budjetly.in, for example ram@Budjetly.in.");
+  if(pw.length<6)return fail("Password needs at least 6 characters.");
+  var h=await hash(key,pw);
+  if(su){
+    if(pw!==$("#pw2").value)return fail("The two passwords do not match.");
+    if(users[key])return fail("This email already has an account. Please sign in.");
+    users[key]={h:h};sv("bj_users",users);
+  }else{
+    if(!users[key])return fail("No account found for this email. Create one first.");
+    if(users[key].h!==h)return fail("Wrong password. Please try again.");
+  }
+  S.err="";S.email=key;sv("bj_session",key);loadData();S.month=monthNow();S.draft=[];S.setupSal="";S.setupSp="";render();
+}
+function addItem(form,errId,onAdd){
+  var n=$("#in").value.trim(),a=num($("#ia").value),need=$("#inc").checked,e=$("#"+errId);
+  if(!n||isNaN(a)){e.textContent="Enter a name and an amount (a number, 0 or more).";return}
+  e.textContent="";onAdd({id:uid(),name:n,amount:a,need:need});prefill="";render();
+}
+document.addEventListener("submit",function(ev){
+  ev.preventDefault();var id=ev.target.id;
+  if(id==="authf")auth();
+  else if(id==="itf"){S.setupSal=$("#sal").value;S.setupSp=$("#sp").value;addItem(ev.target,"err",function(it){S.draft.push(it)})}
+  else if(id==="nf")addItem(ev.target,"err2",function(it){S.data.items.push(it);saveData()});
+  else if(id==="exf"){
+    var n=$("#en").value.trim(),a=num($("#ea").value);
+    if(!n||isNaN(a)||a<=0){$("#err").textContent="Enter what it is for and the cost.";return}
+    S.data.extras.push({id:uid(),month:S.month,name:n,amount:a,note:$("#eo").value.trim()});saveData();S.err="";render();
+  }
+});
+document.addEventListener("change",function(ev){
+  if(ev.target.id==="mo"&&ev.target.value){S.month=ev.target.value;S.confirm=null;render()}
+});
+document.addEventListener("click",async function(ev){
+  var b=ev.target.closest("[data-act]");if(!b)return;
+  var act=b.dataset.act,id=b.dataset.id,D=S.data;
+  if(act==="mode"){S.mode=b.dataset.v;S.err="";render()}
+  else if(act==="out"){S.email=null;S.data=null;S.err="";S.mode="login";rm("bj_session");render()}
+  else if(act==="sugg"){var s=SUGG[+b.dataset.i];S.setupSal=$("#sal").value;S.setupSp=$("#sp").value;prefill=s[0];render();$("#inc").checked=s[2];$("#ia").focus()}
+  else if(act==="dd"){S.setupSal=$("#sal").value;S.setupSp=$("#sp").value;S.draft.splice(+b.dataset.i,1);render()}
+  else if(act==="finish"){
+    var sal=num($("#sal").value),sp=num($("#sp").value);S.setupSal=$("#sal").value;S.setupSp=$("#sp").value;
+    if(isNaN(sal)||sal<=0){S.err="Please enter your monthly salary.";render();return}
+    if(isNaN(sp)){S.err="Please enter about how much you spend in a month.";render();return}
+    var old=S.data;
+    S.data={setup:true,salary:sal,spend:sp,items:S.draft.slice(),extras:old?old.extras:[]};S.err="";saveData();render();
+  }
+  else if(act==="edit"){S.setupSal=D.salary;S.setupSp=D.spend;S.draft=D.items.slice();S.data.setup=false;render()}
+  else if(act==="tg"){D.items.forEach(function(i){if(i.id===id)i.need=!i.need});saveData();render()}
+  else if(act==="ri"){
+    if(S.confirm!==id){S.confirm=id;render();return}
+    D.items=D.items.filter(function(i){return i.id!==id});S.confirm=null;saveData();render();toast("Removed. Your budget now has more room.");
+  }
+  else if(act==="de"){D.extras=D.extras.filter(function(e){return e.id!==id});saveData();render()}
+  else if(act==="xl"){
+    try{
+      var dl=await claude.use("downloads");
+      if(!dl){toast("Excel download is not available in this view.");return}
+      var buf=xlsxExport();
+      await dl.save({filename:"Budjetly-"+S.month+".xlsx",data:buf});toast("Your Excel file is ready.");
+    }catch(e){if(e&&e.code==="declined")return;toast("Could not save the Excel file here.")}
+  }
+});
+render();
+})();
+</script>
+
+</body></html>
